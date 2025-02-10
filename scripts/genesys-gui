@@ -1,0 +1,163 @@
+#! /usr/bin/env python3
+
+import json
+import logging
+import os
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+from genesys.client import GenesysSerialClient, GenesysTcpClient
+from genesys.protocol import GenesysError
+
+
+def catch(func):
+    def wrapper(*arg, **kwarg):
+        try:
+            answer = func(*arg, **kwarg)
+        except GenesysError as err:
+            messagebox.showerror("Error", err)
+        except Exception as err:
+            print(err)
+        else:
+            return answer
+    return wrapper
+
+
+class GenesysGui:
+    def __init__(self, params: dict) -> None:
+        self.root = tk.Tk()
+        self.root.title("Программа управления программируемым источником питания GENESYS")
+        self.root.protocol("WM_DELETE_WINDOW", self.root.quit)
+
+        method = params["method"]
+        port = params["port"]
+        baudrate = params["baudrate"]
+        timeout = params["timeout"]
+        debug = params["debug"]
+
+        level = logging.DEBUG if debug else logging.INFO
+        logging.basicConfig(level=level)
+
+        if method == "Serial":
+            self.client = GenesysSerialClient(port=port, baudrate=baudrate, timeout=timeout)
+        elif method == "TCP":
+            self.client = GenesysTcpClient(port=port, timeout=timeout)
+
+        frame = ttk.Frame(self.root)
+        frame.pack(side="top", fill="both", expand=True)
+
+        frame_channel = ttk.LabelFrame(frame, text="Выбор канала", labelanchor="n")
+        frame_channel.pack(side="top", fill="both", expand=True)
+
+        var_address = tk.IntVar()
+        for i, param in enumerate(params["device"], 1):
+            address_selector = ttk.Radiobutton(frame_channel, text=param["name"], variable=var_address, value=i)
+            address_selector.config(command=lambda: self.select_address(var_address.get(), params["device"]))
+            address_selector.pack(side="left", fill="x", pady=2, padx=2, expand=True)
+
+        frame_mode = ttk.LabelFrame(frame, text="Режим работы", labelanchor="n")
+        frame_mode.pack(side="top", fill="both", expand=True)
+
+        btn_mode_local = ttk.Button(frame_mode, text="Локальный")
+        btn_mode_local.config(command=lambda: self.set_mode(0))
+        btn_mode_local.pack(side="left", fill="x", pady=2, padx=2)
+
+        btn_mode_remote = ttk.Button(frame_mode, text="Удаленный")
+        btn_mode_remote.config(command=lambda: self.set_mode(1))
+        btn_mode_remote.pack(side="left", fill="x", pady=2, padx=2)
+
+        self.var_get_mode = tk.StringVar()
+        entry_get_mode = tk.Entry(frame_mode, textvariable=self.var_get_mode, state="readonly", width=13, justify="center")
+        entry_get_mode.pack(side="left", padx=2)
+
+        frame_volt = ttk.LabelFrame(frame, text="Напряжение", labelanchor="n")
+        frame_volt.pack(side="top", fill="both", expand=True)
+
+        var_spin_volt = tk.DoubleVar()
+        spin_volt = tk.Spinbox(frame_volt, textvariable=var_spin_volt, format="%0.2f", from_=0.01, to=1000.00, increment=0.01, width=10, justify="center")
+        spin_volt.pack(side="left", fill="x", padx=2)
+
+        btn_set_volt = ttk.Button(frame_volt, text="Установить")
+        btn_set_volt.config(command=lambda: self.set_voltage(var_spin_volt.get()))
+        btn_set_volt.pack(side="left", fill="x", pady=2, padx=2)
+
+        self.var_get_volt = tk.StringVar()
+        entry_get_volt = tk.Entry(frame_volt, textvariable=self.var_get_volt, state="readonly", width=13, justify="center")
+        entry_get_volt.pack(side="left", padx=2)
+
+        frame_amper = ttk.LabelFrame(frame, text="Ток", labelanchor="n")
+        frame_amper.pack(side="top", fill="both", expand=True)
+
+        var_spin_amper = tk.DoubleVar()
+        spin_amper = tk.Spinbox(frame_amper, textvariable=var_spin_amper, format="%0.2f", from_=0.01, to=1000.00, increment=0.01, width=10, justify="center")
+        spin_amper.pack(side="left", fill="x", padx=2)
+
+        btn_set_amper = ttk.Button(frame_amper, text="Установить")
+        btn_set_amper.config(command=lambda: self.set_current(var_spin_amper.get()))
+        btn_set_amper.pack(side="left", fill="x", pady=2, padx=2)
+
+        self.var_get_amper = tk.StringVar()
+        entry_get_amper = tk.Entry(frame_amper, textvariable=self.var_get_amper, state="readonly", width=13, justify="center")
+        entry_get_amper.pack(side="left", padx=2)
+
+        frame_out = ttk.LabelFrame(frame, text="Выход", labelanchor="n")
+        frame_out.pack(side="top", fill="both", expand=True)
+
+        btn_reset_out = ttk.Button(frame_out, text="Выключить")
+        btn_reset_out.config(command=lambda: self.set_out(0))
+        btn_reset_out.pack(side="left", fill="x", pady=2, padx=2)
+
+        btn_set_out = ttk.Button(frame_out, text="Включить")
+        btn_set_out.config(command=lambda: self.set_out(1))
+        btn_set_out.pack(side="left", fill="x", pady=2, padx=2)
+
+        self.var_get_out = tk.StringVar()
+        entry_get_out = tk.Entry(frame_out, textvariable=self.var_get_out, state="readonly", width=13, justify="center")
+        entry_get_out.pack(side="left", padx=2)
+
+        self.task = self.root.after_idle(self.tick)
+
+        self.root.mainloop()
+
+    def tick(self) -> None:
+        self.tick_task = self.root.after(500, self.tick)
+
+        try:
+            data = self.client.get_power_status()
+            self.var_get_volt.set(str(data["PV"]))
+            self.var_get_amper.set(str(data["PC"]))
+            self.var_get_out.set("Выключено" if data["FR"] >> 6 & 1 else "Включено")
+            self.var_get_mode.set("Локальный" if data["SR"] >> 7 & 1 else "Удаленный")
+        except (GenesysError, ValueError):
+            self.var_get_volt.set("")
+            self.var_get_amper.set("")
+            self.var_get_out.set("")
+            self.var_get_mode.set("")
+
+    @catch
+    def select_address(self, index: int, params: dict) -> None:
+        self.client.select_address(address=params[index - 1]["address"])
+
+    @catch
+    def set_out(self, mode: int) -> None:
+        self.client.set_output(mode=mode)
+
+    @catch
+    def set_mode(self, mode: int) -> None:
+        self.client.set_remote_mode(mode=mode)
+
+    @catch
+    def set_voltage(self, value: float) -> None:
+        self.client.set_voltage(value=value)
+
+    @catch
+    def set_current(self, value: float) -> None:
+        self.client.set_current(value=value)
+
+
+if __name__ == "__main__":
+    path = os.path.dirname(__file__) + os.sep
+
+    with open(f"{path}genesys.json", encoding="utf-8") as hfile:
+        params = json.load(hfile)
+        GenesysGui(params)

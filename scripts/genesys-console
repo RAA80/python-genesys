@@ -1,0 +1,49 @@
+#! /usr/bin/env python3
+
+import argparse
+import logging
+
+from genesys.client import GenesysSerialClient, GenesysTcpClient
+from genesys.protocol import GenesysError
+
+CMD = {"ADR", "CLS", "RST", "RMT", "RMT?", "MDAV?", "MS?", "IDN?", "REV?",
+       "SN?", "DATE?", "PV", "PV?", "MV?", "PC", "PC?", "MC?", "MODE?", "DVC?",
+       "STT?", "FILTER", "FILTER?", "OUT", "OUT?", "FLD", "FLD?", "FBD", "FBD?",
+       "FBDRST", "OVP", "OVP?", "OVM", "UVL", "UVL?", "AST", "AST?", "SAV", "RCL"}
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="GENESYS command-line option")
+
+    parser.add_argument("--method", type=str, choices=["SERIAL", "TCP"],
+                                    required=True, help="select factory method")
+    parser.add_argument("--port", type=str, required=True,
+                                  help="select port name or IP address")
+    parser.add_argument("--baudrate", type=int,
+                                      help="select port baudrate (for serial method)")
+    parser.add_argument("--timeout", type=float,
+                                     help="select timeout in seconds")
+    parser.add_argument("--debug", action="store_true",
+                                   help="print debug information")
+    parser.add_argument("--send", type=str, nargs="+", metavar=("CMD", "VALUE"),
+                                  required=True, help="send CMD with value")
+    args = parser.parse_args()
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+
+    if args.method == "SERIAL":
+        client = GenesysSerialClient(port=args.port, baudrate=args.baudrate, timeout=args.timeout or 1.0)
+    else:
+        client = GenesysTcpClient(port=args.port, timeout=args.timeout or 1.0)
+
+    if args.send:
+        cmd = args.send[0]
+        if cmd.upper() not in CMD:
+            msg = f"Unknown command {cmd}"
+            raise GenesysError(msg)
+        try:
+            value = args.send[1]
+        except IndexError:
+            value = None
+
+        print(client._send(cmd, value))

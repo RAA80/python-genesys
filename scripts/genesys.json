@@ -1,0 +1,27 @@
+{
+    "comment": "Метод или Serial, или TCP",
+    "method": "Serial",
+
+    "comment": "Или адрес последовательного порта, или IP:PORT для работы через TCP",
+    "port": "COM5",
+
+    "baudrate": 9600,
+    "timeout": 0.1,
+    "debug": 0,
+
+    "device":
+    [
+        {
+            "name": "Канал 1",
+            "address" : 2
+        },
+        {
+            "name": "Канал 2",
+            "address" : 4
+        },
+        {
+            "name": "Канал 3",
+            "address" : 6
+        }
+    ]
+ }
