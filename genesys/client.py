@@ -20,13 +20,14 @@ class GenesysSerialClient(Protocol):
     последовательный порт.
     """
 
-    def __init__(self, port: str, baudrate: int, timeout: float = 1.0) -> None:
+    def __init__(self, address: str, baudrate: int, timeout: float = 1.0) -> None:
         """Инициализация класса клиента с указанными параметрами."""
 
-        self.socket = Serial(port=port, baudrate=baudrate, timeout=timeout)
+        self.socket = Serial(port=address, baudrate=baudrate, timeout=timeout)
 
-        self.port = port
+        self.address = address
         self.baudrate = baudrate
+        self.timeout = timeout
 
     def __del__(self) -> None:
         """Закрытие соединения с устройством при удалении объекта."""
@@ -37,7 +38,8 @@ class GenesysSerialClient(Protocol):
     def __repr__(self) -> str:
         """Строковое представление объекта."""
 
-        return f"{type(self).__name__}(port={self.port!r}, baudrate={self.baudrate})"
+        return (f"{type(self).__name__}(address={self.address!r}, "
+                f"baudrate={self.baudrate}, timeout={self.timeout})")
 
     def _bus_exchange(self, packet: bytes) -> bytes:
         """Обмен по интерфейсу."""
@@ -52,15 +54,15 @@ class GenesysSerialClient(Protocol):
 class GenesysTcpClient(Protocol):
     """Класс для работы с программируемым источником питания GENESYS через TCP."""
 
-    def __init__(self, port: str, timeout: float = 1.0) -> None:
+    def __init__(self, address: str, timeout: float = 1.0) -> None:
         """Инициализация класса клиента с указанными параметрами."""
 
-        ip, tcp_port = port.split(":")
+        ip, tcp_port = address.split(":")
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(timeout)
         self.socket.connect((ip, int(tcp_port)))
 
-        self.port = port
+        self.address = address
         self.timeout = timeout
 
     def __del__(self) -> None:
@@ -72,7 +74,7 @@ class GenesysTcpClient(Protocol):
     def __repr__(self) -> str:
         """Строковое представление объекта."""
 
-        return f"{type(self).__name__}(port={self.port!r}, timeout={self.timeout})"
+        return f"{type(self).__name__}(address={self.address!r}, timeout={self.timeout})"
 
     def _tcp_read(self, timeout: float, stop_byte: bytes | None = None) -> bytes:
         """Чтение ответных данных."""

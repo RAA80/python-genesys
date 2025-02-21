@@ -12,16 +12,20 @@ CMD = {"ADR", "CLS", "RST", "RMT", "RMT?", "MDAV?", "MS?", "IDN?", "REV?",
        "FBDRST", "OVP", "OVP?", "OVM", "UVL", "UVL?", "AST", "AST?", "SAV", "RCL"}
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="GENESYS command-line option")
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="GENESYS command-line option",
+                                     epilog="Usage example:\n"
+                                            "genesys-console --method SERIAL --address COM1 --baudrate 9600 --send ADR 1\n"
+                                            "genesys-console --method TCP --address '192.168.1.2:5000' --send ADR 1\n")
 
     parser.add_argument("--method", type=str, choices=["SERIAL", "TCP"],
-                                    required=True, help="select factory method")
-    parser.add_argument("--port", type=str, required=True,
-                                  help="select port name or IP address")
-    parser.add_argument("--baudrate", type=int,
-                                      help="select port baudrate (for serial method)")
-    parser.add_argument("--timeout", type=float,
-                                     help="select timeout in seconds")
+                                    required=True, help="factory method")
+    parser.add_argument("--address", type=str, required=True,
+                                     help="serial port or IP:PORT")
+    parser.add_argument("--baudrate", type=int, choices=[1200, 2400, 4800, 9600, 19200],
+                                      default=9600, help="port baudrate (for SERIAL method)")
+    parser.add_argument("--timeout", type=float, default=1.0,
+                                     help="timeout in seconds")
     parser.add_argument("--debug", action="store_true",
                                    help="print debug information")
     parser.add_argument("--send", type=str, nargs="+", metavar=("CMD", "VALUE"),
@@ -32,9 +36,9 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.DEBUG)
 
     if args.method == "SERIAL":
-        client = GenesysSerialClient(port=args.port, baudrate=args.baudrate, timeout=args.timeout or 1.0)
-    else:
-        client = GenesysTcpClient(port=args.port, timeout=args.timeout or 1.0)
+        client = GenesysSerialClient(address=args.address, baudrate=args.baudrate, timeout=args.timeout)
+    elif args.method == "TCP":
+        client = GenesysTcpClient(address=args.address, timeout=args.timeout)
 
     if args.send:
         cmd = args.send[0]

@@ -5,12 +5,13 @@ import logging
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
+from typing import Callable
 
 from genesys.client import GenesysSerialClient, GenesysTcpClient
 from genesys.protocol import GenesysError
 
 
-def catch(func):
+def catch(func: Callable) -> Callable:
     def wrapper(*arg, **kwarg):
         try:
             answer = func(*arg, **kwarg)
@@ -26,7 +27,7 @@ def catch(func):
 class GenesysGui:
     def __init__(self, params: dict) -> None:
         self.root = tk.Tk()
-        self.root.title("Программа управления программируемым источником питания GENESYS")
+        self.root.title("Genesys GUI")
         self.root.protocol("WM_DELETE_WINDOW", self.root.quit)
 
         method = params["method"]
@@ -39,9 +40,12 @@ class GenesysGui:
         logging.basicConfig(level=level)
 
         if method == "Serial":
-            self.client = GenesysSerialClient(port=port, baudrate=baudrate, timeout=timeout)
+            self.client = GenesysSerialClient(address=port, baudrate=baudrate, timeout=timeout)
         elif method == "TCP":
-            self.client = GenesysTcpClient(port=port, timeout=timeout)
+            self.client = GenesysTcpClient(address=port, timeout=timeout)
+        else:
+            msg = "Unknown method in config file"
+            raise GenesysError(msg)
 
         frame = ttk.Frame(self.root)
         frame.pack(side="top", fill="both", expand=True)
@@ -158,6 +162,6 @@ class GenesysGui:
 if __name__ == "__main__":
     path = os.path.dirname(__file__) + os.sep
 
-    with open(f"{path}genesys.json", encoding="utf-8") as hfile:
+    with open(f"{path}genesys-gui.json", encoding="utf-8") as hfile:
         params = json.load(hfile)
         GenesysGui(params)

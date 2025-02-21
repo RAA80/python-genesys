@@ -1,11 +1,13 @@
 {
-    "comment": "Метод или Serial, или TCP",
+    "comment": "Метод Serial или TCP",
     "method": "Serial",
 
-    "comment": "Или адрес последовательного порта, или IP:PORT для работы через TCP",
+    "comment": "Адрес последовательного порта или IP:PORT для работы через TCP",
     "port": "COM5",
 
+    "comment": "Скорость последовательного порта (для метода Serial)",
     "baudrate": 9600,
+
     "timeout": 0.1,
     "debug": 0,
 

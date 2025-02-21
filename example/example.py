@@ -10,8 +10,8 @@ logging.basicConfig(level=logging.INFO)
 
 
 if __name__ == "__main__":
-    client = GenesysSerialClient(port="COM5", baudrate=9600)
-    # client = GenesysTcpClient(port="127.0.0.1:5000")
+    client = GenesysSerialClient(address="COM5", baudrate=9600)
+    # client = GenesysTcpClient(address="127.0.0.1:5000")
     print(client)
 
     print(client.select_address(address=6))
