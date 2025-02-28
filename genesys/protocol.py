@@ -22,6 +22,15 @@ class STATUS(TypedDict):
     FR: int
 
 
+class VC_DATA(TypedDict):
+    MV: float
+    PV: float
+    MC: float
+    PC: float
+    OVP: float
+    UVL: float
+
+
 class GenesysError(Exception):
     pass
 
@@ -188,12 +197,18 @@ class Protocol:
 
         return self._get_string("MODE?", {b"CV\r", b"CC\r", b"OFF\r"})
 
-    def get_voltage_and_current(self) -> str:
-        """Display Voltage and Current data. Data will be returned as a string of
-        ASCII characters. A comma will separate the different fields.
-        """
+    def get_voltage_and_current(self) -> VC_DATA:
+        """Display Voltage and Current data."""
 
-        return self._get_string("DVC?")
+        result = self._get_string("DVC?")
+        status = re.sub(r"[a-z() ]*", "", result.lower()).split(",")
+
+        return {"MV": float(status[0]),
+                "PV": float(status[1]),
+                "MC": float(status[2]),
+                "PC": float(status[3]),
+                "OVP": float(status[4]),
+                "UVL": float(status[5])}
 
     def get_power_status(self) -> STATUS:
         """Read the complete power supply status."""
