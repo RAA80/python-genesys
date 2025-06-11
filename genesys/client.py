@@ -1,45 +1,54 @@
 #! /usr/bin/env python3
 
-"""Реализация класса клиента для управления программируемым источником
-питания GENESYS.
-"""
+"""Реализация клиентов для управления программируемым источником питания GENESYS."""
 
 from __future__ import annotations
 
-import select
-import socket
-from time import time
+from dataclasses import dataclass
+from socket import AF_INET, SOCK_STREAM, socket
 
 from serial import Serial
 
-from .protocol import Protocol
+from genesys.protocol import Protocol
 
 
-class GenesysSerialClient(Protocol):
-    """Класс для работы с программируемым источником питания GENESYS через
-    последовательный порт.
-    """
+@dataclass
+class BaseClient(Protocol):
+    """Базовый класс для работы с программируемым источником питания GENESYS."""
 
-    def __init__(self, address: str, baudrate: int, timeout: float = 1.0) -> None:
-        """Инициализация класса клиента с указанными параметрами."""
+    address: str
+    timeout: float = 1.0
 
-        self.socket = Serial(port=address, baudrate=baudrate, timeout=timeout)
+    def __post_init__(self) -> None:
+        """Инициализация параметров транспорта."""
 
-        self.address = address
-        self.baudrate = baudrate
-        self.timeout = timeout
+        self.socket: Serial | socket
 
     def __del__(self) -> None:
         """Закрытие соединения с устройством при удалении объекта."""
 
-        if self.socket.is_open:
+        if self.socket:
             self.socket.close()
 
-    def __repr__(self) -> str:
-        """Строковое представление объекта."""
+    def _bus_exchange(self, packet: bytes) -> bytes:
+        """Обмен по интерфейсу."""
 
-        return (f"{type(self).__name__}(address={self.address!r}, "
-                f"baudrate={self.baudrate}, timeout={self.timeout})")
+        raise NotImplementedError
+
+
+@dataclass
+class GenesysSerialClient(BaseClient):
+    """Класс для работы с программируемым источником питания GENESYS через
+    последовательный порт.
+    """
+
+    baudrate: int = 9600
+
+    def __post_init__(self) -> None:
+        """Инициализация параметров транспорта."""
+
+        self.socket: Serial = Serial(port=self.address, baudrate=self.baudrate,
+                                     timeout=self.timeout)
 
     def _bus_exchange(self, packet: bytes) -> bytes:
         """Обмен по интерфейсу."""
@@ -51,53 +60,23 @@ class GenesysSerialClient(Protocol):
         return self.socket.read_until(b"\r")
 
 
-class GenesysTcpClient(Protocol):
+@dataclass
+class GenesysTcpClient(BaseClient):
     """Класс для работы с программируемым источником питания GENESYS через TCP."""
 
-    def __init__(self, address: str, timeout: float = 1.0) -> None:
-        """Инициализация класса клиента с указанными параметрами."""
+    def __post_init__(self) -> None:
+        """Инициализация параметров транспорта."""
 
-        ip, tcp_port = address.split(":")
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(timeout)
-        self.socket.connect((ip, int(tcp_port)))
-
-        self.address = address
-        self.timeout = timeout
-
-    def __del__(self) -> None:
-        """Закрытие соединения с устройством при удалении объекта."""
-
-        if self.socket:
-            self.socket.close()
-
-    def __repr__(self) -> str:
-        """Строковое представление объекта."""
-
-        return f"{type(self).__name__}(address={self.address!r}, timeout={self.timeout})"
-
-    def _tcp_read(self, timeout: float, stop_byte: bytes | None = None) -> bytes:
-        """Чтение ответных данных."""
-
-        max_t = time() + timeout
-        ret = b""
-        while True:
-            to_wait = max(0.0, max_t - time())
-            r, _, _ = select.select([self.socket], [], [], to_wait)
-            if self.socket not in r:
-                break
-            chunk = self.socket.recv(1)
-            ret += chunk
-            if len(chunk) == 0 or chunk == stop_byte:
-                break
-        return ret
+        ip, port = self.address.split(":")
+        self.socket: socket = socket(AF_INET, SOCK_STREAM)
+        self.socket.settimeout(self.timeout)
+        self.socket.connect((ip, int(port)))
 
     def _bus_exchange(self, packet: bytes) -> bytes:
         """Обмен по интерфейсу."""
 
-        self._tcp_read(0.0)  # drain input buffer
-        self.socket.send(packet)
-        return self._tcp_read(self.timeout, b"\r")
+        self.socket.sendall(packet)
+        return self.socket.recv(128)
 
 
 __all__ = ["GenesysSerialClient", "GenesysTcpClient"]

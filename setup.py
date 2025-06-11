@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name="python-genesys",
-      version="0.0.4",
+      version="0.0.5",
       description="GENESYS Programmable DC Power Supplies library",
       url="https://github.com/RAA80/python-genesys",
       author="Alexey Ryadno",

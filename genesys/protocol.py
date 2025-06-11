@@ -38,17 +38,17 @@ class GenesysError(Exception):
 class Protocol:
     """Класс протокола работы с программируемым источником питания GENESYS."""
 
+    def _bus_exchange(self, packet: bytes) -> bytes:
+        """Обмен по интерфейсу."""
+
+        raise NotImplementedError
+
     @staticmethod
     def _make_packet(command: str, value: float | str | None = None) -> bytes:
         """Формирование пакета для записи."""
 
         msg = "" if value is None else f" {value}"
         return bytes(command + msg + "\r", encoding="ascii")
-
-    def _bus_exchange(self, packet: bytes) -> bytes:
-        """Обмен по интерфейсу."""
-
-        raise NotImplementedError
 
     def _send(self, command: str, value: float | str | None = None) -> bytes:
         """Послать команду в устройство."""
